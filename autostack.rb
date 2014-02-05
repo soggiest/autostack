@@ -43,6 +43,7 @@ def configure_db
 	puts "Enter Database Password:"
 
 	db_pass = gets
+	db_pass = db_pass.chomp
 
 	service_start   = `service mysqld start`
 	chkconfig_start = `chkconfig mysqld on`
@@ -61,6 +62,7 @@ def configure_message_broker
 
 	puts "How will clients connect to the Message Broker:(anonymous, plain, or md5)"
 	message_sec = gets
+	message_sec = message_sec.chomp
 
 	qpidd_conf = File.open("/etc/sasl2/qpidd.conf")
 
@@ -100,15 +102,17 @@ def configure_sasl
 
 	puts "Do you want to specify a user to the SASL Database?(yes/no)"
 	user_question = gets 
-
+	user_question = user_question.chomp
 
 	if user_question == "yes"
 		begin
 			puts "Enter username (username@domain):"
 			username = gets
+			username = username.chomp
 			sasl_add = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID #{username}`
 			puts "Do you want to add another user?(yes/no)"
 			another_user = gets
+			another_user = another_user.chomp
 			retry if another_user == "yes"
 		end
 	end
@@ -129,6 +133,7 @@ end
 def configure_tls_ssl 
 	puts "Enter SSL password:"
 	ssl_password = gets
+	ssl_password = ssl_password.chomp
 
 	cert_dir     = "/tmp/openstack_certs"
 	cert_pw_file = "/tmp/openstack_certs/pw_file"
@@ -137,17 +142,24 @@ def configure_tls_ssl
 	cert_dir_creation = `mkdir #{cert_dir}`
 	
 	puts "Creating SSL password file"
+	puts "SSL command:echo #{ssl_password} >> #{cert_pw_file}"
+
 	pw_file_create    = `echo #{ssl_password} > #{cert_pw_file}` 
 
+	puts "Creating Certificates"
 	cert_create       = `certutil -N -d #{cert_dir} -f #{cert_pw_file}`
+	
+	puts "Creating Certificate nickname"
 	cert_set_nick     = `certutil -S -d #{cert_dir} -n openstack -s "CN=openstack" -t "CT,," -x -f #{cert_pw_file} -z /usr/bin/certutil`
+	
+	puts "Exporting PK12 certs"
 	export_pk12       = `pk12util -o #{cert_dir}/p12_export -n openstack -d #{cert_dir} -w #{cert_pw_file}`
-	export_ssl	  = `openssl pkcs12 -in #{cert_dir}/p12_export -out openstack_cert -nodes -clcerts -pass  pass:#{ssl_password}`
+	
+	puts "Exporting SSL certs"
+	export_ssl	  = `openssl pkcs12 -in #{cert_dir}/p12_export -out openstack_cert -nodes -clcerts -passin  pass:#{ssl_password}`
 
-	puts "Configuring Firewall for Message Broker AQMP"
+	abort("TLS SSL sitll not working yet")
 
-	fire_rule = "-p tcp -m tcp --dport 5672 -j ACCEPT"
-	configure_firewall(fire_rule)
 end
 ############Install Identity Service
 
@@ -158,7 +170,9 @@ def configure_identity_db(db_passwd)
 	install(package_name)
 
 	puts "Enter password for Keystone Database"
-	keystone_pw  = get
+	keystone_pw = gets
+	keystone_pw =keystone_pw.chomp
+
 	mysql_script = "CREATE DATABASE keystone; USE keystone; GRANT ALL ON keystone.* TO 'keystone'@'%' IDENTIFIED BY #{db_passwd}; GRANT ALL ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY #{keystone_pw}; FLUSH PRIVILEGES; quit"
 	File.write mysql_script "/tmp/mysqlscript"
 
