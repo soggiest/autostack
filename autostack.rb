@@ -17,7 +17,10 @@ def configure_firewall(fire_rule)
 	append_find 	        = /(\w*):/.match fire_out
 	append_num 		= append_find[1]
 	append_num 		= append_num.to_i - 2
-	append_out 		= `iptables -I #{append_num} INPUT #{fire_rule}`
+	
+	puts "Iptables Command:iptables -I INPUT #{append_num} #{fire_rule}" 
+
+	append_out 		= `iptables -I INPUT #{append_num} #{fire_rule}`
 	service_restart         = `service iptables restart`
 end
 
@@ -56,9 +59,9 @@ def configure_message_broker
 	install(package_name)
 
 	puts "How will clients connect to the Message Broker:(anonymous, plain, or md5)"
-	broker_sec = gets
+	message_sec = gets
 
-	qpidd_conf = file.open("/etc/sasl2/qpidd.conf")
+	qpidd_conf = File.open("/etc/sasl2/qpidd.conf")
 
 	if message_sec == "anonymous"
 		#don't do anything
@@ -77,7 +80,7 @@ def configure_message_broker
 
 	puts "Configuring Firewall for Message Broker"
 
-	fire_rule = "-A INPUT -p tcp -m tcp --dport 5672 -j ACCEPT"
+	fire_rule = "-p tcp -m tcp --dport 5672 -j ACCEPT"
 
 	configure_firewall(fire_rule)
 
@@ -97,8 +100,9 @@ def configure_sasl
 	puts "Do you want to specify a user to the SASL Database?(yes/no)"
 	user_question = gets 
 
-	begin
-		if user_question == "yes"
+
+	if user_question == "yes"
+		begin
 			puts "Enter username (username@domain):"
 			username = gets
 			sasl_add = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID #{username}`
@@ -108,8 +112,13 @@ def configure_sasl
 		end
 	end
 
+	puts "Configuring SASL Cinder"
 	sasl_cinder  = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID cinder`
+	
+	puts "Configuring SASL Neutron"
 	sasl_neutron = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID neutron`
+	
+	puts "Configuring SASL Nova"
 	sasl_nova    = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID nova`
 end
 
@@ -143,7 +152,7 @@ def configure_identity_db(db_passwd)
 	puts "Enter password for Keystone Database"
 	keystone_pw  = get
 	mysql_script = "CREATE DATABASE keystone; USE keystone; GRANT ALL ON keystone.* TO 'keystone'@'%' IDENTIFIED BY #{db_passwd}; GRANT ALL ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY #{keystone_pw}; FLUSH PRIVILEGES; quit"
-	file.write mysql_script "/tmp/mysqlscript"
+	File.write mysql_script "/tmp/mysqlscript"
 
 	mysql_create = `mysql -u root -p db_passwd > /tmp/mysqlscript`
 	remove_mysql = `rm /tmp/mysqlscript`
