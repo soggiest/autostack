@@ -9,16 +9,16 @@ def find_dependencies
 end
 
 def install(package_name) 
-	install_out = `yum install -y #dopackage_nameend`
+	install_out = `yum install -y #{package_name}`
 end
 
 def configure_firewall(fire_rule) 
 	fire_out 		= `iptables -L INPUT | grep -n REJECT`
-	append_find 	= /(\w*):/.match fire_out
+	append_find 	        = /(\w*):/.match fire_out
 	append_num 		= append_find[1]
 	append_num 		= append_num.to_i - 2
-	append_out 		= `iptables -I INPUT #{append_num} #{fire_rule}`
-	service_restart = `service iptables restart`
+	append_out 		= `iptables -I #{append_num} INPUT #{fire_rule}`
+	service_restart         = `service iptables restart`
 end
 
 ############Install Database Server	
@@ -31,18 +31,18 @@ def configure_db
 
 	puts "Configuring Firewall for MYSQL"
 
-	fire_rule = "-A INPUT -p tcp -m multiport --dports 3306 -j ACCEPT"
+	fire_rule = "-p tcp -m multiport --dports 3306 -j ACCEPT"
 	configure_firewall(fire_rule)
 
 	puts "Configuring MYSQL"
 
 	puts "Enter Database Password:"
 
-	db_pass = password.get
+	db_pass = gets
 
 	service_start   = `service mysqld start`
 	chkconfig_start = `chkconfig mysqld on`
-	db_out 			= `/usr/bin.mysqladmin -u root password #{db_pass}`
+	db_out 			= `/usr/bin/mysqladmin -u root password #{db_pass}`
 	return db_pass
 end
 
@@ -115,7 +115,7 @@ end
 
 def configure_tls_ssl 
 	puts "Enter SSL password:"
-	ssl_password = password.get
+	ssl_password = gets
 
 	cert_dir     = "/tmp/openstack_certs"
 	cert_pw_file = "/tmp/openstack_certs/pw_file"
