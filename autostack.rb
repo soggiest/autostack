@@ -60,15 +60,15 @@ def configure_message_broker
 
 	qpidd_conf = file.open("/etc/sasl2/qpidd.conf")
 
-	if message_sec = "anonymous"
+	if message_sec == "anonymous"
 		#don't do anything
-	elsif message_sec = "plain"
+	elsif message_sec == "plain"
 		install("cyrus-sasl-plain")
-		qpidd_conf.gsub (/mech_list:.*$/, /mech_list: PLAIN/) 
+		qpidd_conf.gsub(/mech_list:.*$/, /mech_list: PLAIN/) 
 
-	elsif message_sec = "md5"
+	elsif message_sec == "md5"
 		install("cyrus-sasl-md5")
-		qpidd_conf.gsub (/mech_list:.*$/, /mech_list: DIGEST-MD5/)
+		qpidd_conf.gsub(/mech_list:.*$/, /mech_list: DIGEST-MD5/)
 
 		#add some stuff to add users
 	else 
@@ -98,13 +98,13 @@ def configure_sasl
 	user_question = gets 
 
 	begin
-		if user_question = "yes"
+		if user_question == "yes"
 			puts "Enter username (username@domain):"
 			username = gets
 			sasl_add = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID #{username}`
 			puts "Do you want to add another user?(yes/no)"
 			another_user = gets
-			retry if another_user = "yes"
+			retry if another_user == "yes"
 		end
 	end
 
@@ -272,7 +272,7 @@ end
 def validate_identity_installation(admin_id, user_id)
 	source_admin = `source ~/keystonerc_admin`
 	user_list = `keystone user-list`
-	if (user_list.include? admin_id && user_liast.include? user_id)  do
+	if (user_list.include? admin_id) && (user_liast.include? user_id)
 		puts "Admin account verified"
 	else
 		kill "Admin account failed due to: #{user_list}"
@@ -280,14 +280,14 @@ def validate_identity_installation(admin_id, user_id)
 
 	source_user = `source ~/keystonerc_user`
 	user_list = `keystone user-list`
-	if (user_list.include? "HTTP 303")  do
+	if (user_list.include? "HTTP 303")
 		puts "Normal user access verified"
 	else
 		kill "Normal access verification failed due to: #{user_list}"
 	end	
 
 	token_get = `keystone token-get`
-	if (token_get.include? userid) do
+	if (token_get.include? userid)
 		puts "Normal user token received"
 	else
 		kill "Token get failed, you suck"
