@@ -13,15 +13,16 @@ def install(package_name)
 end
 
 def configure_firewall(fire_rule) 
-	fire_out 		= `iptables -L INPUT | grep -n REJECT`
-	append_find 	        = /(\w*):/.match fire_out
-	append_num 		= append_find[1]
-	append_num 		= append_num.to_i - 2
+	fire_out 	 = `iptables -L INPUT | grep -n REJECT`
+	append_find 	 = /(\w*):/.match fire_out
+	append_num 	 = append_find[1]
+	append_num 	 = append_num.to_i - 2
 	
 	puts "Iptables Command:iptables -I INPUT #{append_num} #{fire_rule}" 
 
-	append_out 		= `iptables -I INPUT #{append_num} #{fire_rule}`
-	service_restart         = `service iptables restart`
+	append_out 	 = `iptables -I INPUT #{append_num} #{fire_rule}`
+	save_out         = `service iptables save`
+	service_restart  = `service iptables restart`
 end
 
 ############Install Database Server	
@@ -113,7 +114,7 @@ def configure_sasl
 	end
 
 	puts "Configuring SASL guest account"
-	sasl_guest  = `echo guest | saslpasswd2 -f /var/lib/qpidd.sasldb -U QPID guest`
+	sasl_guest  = `echo guest | saslpasswd2 -f /var/lib/qpidd.sasldb -u QPID guest`
 
 	puts "Configuring SASL Cinder"
 	sasl_cinder  = `echo cinder | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID cinder`
@@ -132,16 +133,20 @@ def configure_tls_ssl
 	cert_dir     = "/tmp/openstack_certs"
 	cert_pw_file = "/tmp/openstack_certs/pw_file"
 
+	puts "Creating SSL password dir"
 	cert_dir_creation = `mkdir #{cert_dir}`
+	
+	puts "Creating SSL password file"
+	pw_file_create    = `echo #{ssl_password} > #{cert_pw_file}` 
+
 	cert_create       = `certutil -N -d #{cert_dir} -f #{cert_pw_file}`
 	cert_set_nick     = `certutil -S -d #{cert_dir} -n openstack -s "CN=openstack" -t "CT,," -x -f #{cert_pw_file} -z /usr/bin/certutil`
 	export_pk12       = `pk12util -o #{cert_dir}/p12_export -n openstack -d #{cert_dir} -w #{cert_pw_file}`
-	export_ssl		  = `openssl pkcs12 -in #{cert_dir}/p12_export -out openstack_cert -nodes -clcerts -passin`
-	####I THINK I NEED TO ADD SOMETHING TO PASS IN A PASSWORD
+	export_ssl	  = `openssl pkcs12 -in #{cert_dir}/p12_export -out openstack_cert -nodes -clcerts -pass  pass:#{ssl_password}`
 
 	puts "Configuring Firewall for Message Broker AQMP"
 
-	fire_rule = "-A INPUT -p tcp -m tcp --dport 5672 -j ACCEPT"
+	fire_rule = "-p tcp -m tcp --dport 5672 -j ACCEPT"
 	configure_firewall(fire_rule)
 end
 ############Install Identity Service
