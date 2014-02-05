@@ -112,14 +112,17 @@ def configure_sasl
 		end
 	end
 
+	puts "Configuring SASL guest account"
+	sasl_guest  = `echo guest | saslpasswd2 -f /var/lib/qpidd.sasldb -U QPID guest`
+
 	puts "Configuring SASL Cinder"
-	sasl_cinder  = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID cinder`
+	sasl_cinder  = `echo cinder | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID cinder`
 	
 	puts "Configuring SASL Neutron"
-	sasl_neutron = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID neutron`
+	sasl_neutron = `echo neutron | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID neutron`
 	
 	puts "Configuring SASL Nova"
-	sasl_nova    = `saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID nova`
+	sasl_nova    = `echo nova | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID nova`
 end
 
 def configure_tls_ssl 
