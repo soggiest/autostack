@@ -155,7 +155,7 @@ def configure_tls_ssl
 	export_pk12       = `pk12util -o #{cert_dir}/p12_export -n openstack -d #{cert_dir} -w #{cert_pw_file}`
 	
 	puts "Exporting SSL certs\n----\n"
-	export_ssl	  = `openssl pkcs12 -in #{cert_dir}/p12_export -out openstack_cert -nodes -clcerts -passin  pass:#{ssl_password}`
+	export_ssl	  = `openssl pkcs12 -in #{cert_dir}/p12_export -out #{cert_dir}/openstack_cert -nodes -clcerts -passin  pass:#{ssl_password}`
 
 end
 ############Install Identity Service
