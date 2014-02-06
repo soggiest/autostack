@@ -18,7 +18,7 @@ def configure_firewall(fire_rule)
 	append_num 	 = append_find[1]
 	append_num 	 = append_num.to_i - 2
 	
-	puts "Iptables Command:iptables -I INPUT #{append_num} #{fire_rule}" 
+#	puts "Iptables Command:iptables -I INPUT #{append_num} #{fire_rule}" 
 
 	append_out 	 = `iptables -I INPUT #{append_num} #{fire_rule}`
 	save_out         = `service iptables save`
@@ -28,17 +28,17 @@ end
 ############Install Database Server	
 
 def configure_db 
-	puts "Installing MYSQL database"
+	puts "Installing MYSQL database\n----\n"
 
 	package_name = "mysql-server"
 	install(package_name)
 
-	puts "Configuring Firewall for MYSQL"
+	puts "Configuring Firewall for MYSQL\n----\n"
 
 	fire_rule = "-p tcp -m multiport --dports 3306 -j ACCEPT"
 	configure_firewall(fire_rule)
 
-	puts "Configuring MYSQL"
+	puts "Configuring MYSQL\n----\n"
 
 	puts "Enter Database Password:"
 
@@ -47,7 +47,7 @@ def configure_db
 
 	service_start   = `service mysqld start`
 	chkconfig_start = `chkconfig mysqld on`
-	db_out 			= `/usr/bin/mysqladmin -u root password #{db_pass}`
+	db_out 		= `/usr/bin/mysqladmin -u root password #{db_pass}`
 	return db_pass
 end
 
@@ -55,7 +55,7 @@ end
 ############Install Message Broker
 
 def configure_message_broker 
-	puts "Installing Message Broker"
+	puts "Installing Message Broker\n----\n"
 
 	package_name = "qpidd-cpp-server qpid-cpp-server-ssl"
 	install(package_name)
@@ -81,7 +81,7 @@ def configure_message_broker
 		err = "Couldn't determine security method"
 	end
 
-	puts "Configuring Firewall for Message Broker"
+	puts "Configuring Firewall for Message Broker\n----\n"
 
 	fire_rule = "-p tcp -m tcp --dport 5672 -j ACCEPT"
 
@@ -117,16 +117,16 @@ def configure_sasl
 		end
 	end
 
-	puts "Configuring SASL guest account"
+	puts "Configuring SASL guest account\n----\n"
 	sasl_guest  = `echo guest | saslpasswd2 -f /var/lib/qpidd.sasldb -u QPID guest`
 
-	puts "Configuring SASL Cinder"
+	puts "Configuring SASL Cinder\n----\n"
 	sasl_cinder  = `echo cinder | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID cinder`
 	
-	puts "Configuring SASL Neutron"
+	puts "Configuring SASL Neutron\n----\n"
 	sasl_neutron = `echo neutron | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID neutron`
 	
-	puts "Configuring SASL Nova"
+	puts "Configuring SASL Nova\n----\n"
 	sasl_nova    = `echo nova | saslpasswd2 -f /var/lib/qpidd/qpidd.sasldb -u QPID nova`
 end
 
@@ -138,27 +138,24 @@ def configure_tls_ssl
 	cert_dir     = "/tmp/openstack_certs"
 	cert_pw_file = "/tmp/openstack_certs/pw_file"
 
-	puts "Creating SSL password dir"
+	puts "Creating SSL password dir\n----\n"
 	cert_dir_creation = `mkdir #{cert_dir}`
 	
-	puts "Creating SSL password file"
-	puts "SSL command:echo #{ssl_password} >> #{cert_pw_file}"
+	puts "Creating SSL password file\n----\n"
 
 	pw_file_create    = `echo #{ssl_password} > #{cert_pw_file}` 
 
-	puts "Creating Certificates"
+	puts "Creating Certificates\n----\n"
 	cert_create       = `certutil -N -d #{cert_dir} -f #{cert_pw_file}`
 	
-	puts "Creating Certificate nickname"
+	puts "Creating Certificate nickname\n----\n"
 	cert_set_nick     = `certutil -S -d #{cert_dir} -n openstack -s "CN=openstack" -t "CT,," -x -f #{cert_pw_file} -z /usr/bin/certutil`
 	
-	puts "Exporting PK12 certs"
+	puts "Exporting PK12 certs\n----\n"
 	export_pk12       = `pk12util -o #{cert_dir}/p12_export -n openstack -d #{cert_dir} -w #{cert_pw_file}`
 	
-	puts "Exporting SSL certs"
+	puts "Exporting SSL certs\n----\n"
 	export_ssl	  = `openssl pkcs12 -in #{cert_dir}/p12_export -out openstack_cert -nodes -clcerts -passin  pass:#{ssl_password}`
-
-	abort("TLS SSL sitll not working yet")
 
 end
 ############Install Identity Service
@@ -172,11 +169,16 @@ def configure_identity_db(db_passwd)
 	puts "Enter password for Keystone Database"
 	keystone_pw = gets
 	keystone_pw =keystone_pw.chomp
+	
+	puts "Configuring Openstack Identity Database script\n----\n"
 
-	mysql_script = "CREATE DATABASE keystone; USE keystone; GRANT ALL ON keystone.* TO 'keystone'@'%' IDENTIFIED BY #{db_passwd}; GRANT ALL ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY #{keystone_pw}; FLUSH PRIVILEGES; quit"
-	File.write mysql_script "/tmp/mysqlscript"
+	mysql_script = "CREATE DATABASE keystone;\n USE keystone;\n GRANT ALL ON keystone.* TO 'keystone'@'%' IDENTIFIED BY \'#{db_passwd}\';\n GRANT ALL ON keystone.* TO 'keystone'@'localhost' IDENTIFIED BY \'#{keystone_pw}\';\n FLUSH PRIVILEGES;\n quit"
+	File.open("/tmp/mysqlscript", 'w') { | file| file.write mysql_script}
+	
+	puts "Configuring Openstack Identity Database\n----\n"
+	mysql_create = `mysql -u root -p#{db_passwd} < /tmp/mysqlscript`
 
-	mysql_create = `mysql -u root -p db_passwd > /tmp/mysqlscript`
+	puts "Removing Database Configuration Script\n----\n"
 	remove_mysql = `rm /tmp/mysqlscript`
 
 	return keystone_pw
@@ -210,7 +212,7 @@ def configure_identity_service(keystone_passwd)
 	###At this point I'm electing to not do the LDAP set up, maybe after I get the rest running
 
 	puts "Configuring firewall for Identity Service"
-	fire_rule = "-A INPUT -p tcp -m multiport --dports 5000,35357 -j ACCEPT"
+	fire_rule = "-p tcp -m multiport --dports 5000,35357 -j ACCEPT"
 	configure_firewall(fire_rule)
 
 	puts "Populating Identity Service database"
@@ -219,6 +221,8 @@ def configure_identity_service(keystone_passwd)
 	puts "Starting Identity Service"
 	identity_start = `service openstack-keystone start`
 	chkconfig_is   = `chkconfig openstack-keystone on`	
+
+	abort("\n---------\nGetting Identity Service to work\n---------\n")
 end
 
 def create_identity_endpoint(ip_address)
@@ -423,9 +427,10 @@ admin_passwd = 'openstack'
 
 configure_db
 
-mysql_pw = configure_message_broker
+db_passwd = configure_message_broker
 
-keystone_pw = configure_identity_db(mysql_pw)
+#db_passwd = "admin"
+keystone_pw = configure_identity_db(db_passwd)
 
 configure_identity_service(keystone_pw)
 
