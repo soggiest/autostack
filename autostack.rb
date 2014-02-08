@@ -185,22 +185,28 @@ def configure_identity_db(db_passwd)
 end
 
 def configure_identity_service(keystone_passwd) 
-	puts "Creating Admin Token"
+	puts "Creating Admin Token\n----\n"
 
-	create_token = `export SERVICE_TOKEN=$(openssl rand -hex10)`
-	echo_token   = `echo $SERVICE_TOKEN > ~/ks_admin_token`
+	#create_token = `export SERVICE_TOKEN=$(openssl rand -hex 10)`
 
-	puts "Setting Admin Token"
-	stack_config = `openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token $SERVICE_TOKEN`
+	service_token = `openssl rand -hex 10`
+	service_token = service_token.chomp
+	ks_file       = "/root/ks_admin_token"
+	puts "#{service_token}"
+	#echo_token   = `echo #{service_token} > #{ks_file}`
+	File.open(ks_file, 'w') { |file| file.write service_token}
+
+	puts "Setting Admin Token\n----\n"
+	stack_config = `openstack-config --set /etc/keystone/keystone.conf DEFAULT admin_token #{service_token}`
 	
-	puts "Setting the Database Connection string"
-	stack_db	 = `openstack-config --set /etc/keystone/keystone.conf sql connection mysql://keystone:#{keystone_passwd}@127.0.0.1/keystone`
+	puts "Setting the Database Connection string\n----\n"
+	stack_db        = `openstack-config --set /etc/keystone/keystone.conf sql connection mysql://keystone:#{keystone_passwd}@127.0.0.1/keystone`
 
-	puts "Configuring PKI"
+	puts "Configuring PKI\n----\n"
 	keystone_create = `keystone-manage pki_setup --keystone-user keystone --keystone-group keystone`
 	chown_keystone  = `chown -R keystone:keystone /var/log/keystone /etc/keystone/ssl/`
 
-	puts "Enabling Identity Service to use PKI files"
+	puts "Enabling Identity Service to use PKI files\n----\n"
 	token_signing = `openstack-config --set /etc/keystone/keystone.conf signing token_format PKI`
 	certfile_sign = `openstack-config --set /etc/keystone/keystone.conf signing certfile /etc/keystore/ssl/certs/signing_cert.pem`
 	keyfile_sign  = `openstack-config --set /etc/keystone/keystone.conf signing keyfile /etc/keystone/ssl/private/signing_key.pem`
@@ -211,38 +217,51 @@ def configure_identity_service(keystone_passwd)
 
 	###At this point I'm electing to not do the LDAP set up, maybe after I get the rest running
 
-	puts "Configuring firewall for Identity Service"
+	puts "Configuring firewall for Identity Service\n----\n"
 	fire_rule = "-p tcp -m multiport --dports 5000,35357 -j ACCEPT"
 	configure_firewall(fire_rule)
 
-	puts "Populating Identity Service database"
+	puts "Populating Identity Service database\n----\n"
 	pop_keystone = `su keystone -s /bin/sh -c "keystone-manage db_sync"`
 
-	puts "Starting Identity Service"
+	puts "Starting Identity Service\n----\n"
 	identity_start = `service openstack-keystone start`
 	chkconfig_is   = `chkconfig openstack-keystone on`	
 
-	abort("\n---------\nGetting Identity Service to work\n---------\n")
+	return service_token
 end
 
-def create_identity_endpoint(ip_address)
-	puts "Exporting Service Token"
+def create_identity_endpoint(ip_address, service_token)
+	puts "Exporting Service Token\n----\n"
+	#service_token      = `export SERVICE_TOKEN=\`cat ~/ks_admin_token\``
+	service_endpoint   = "http://#{ip_address}:35357/v2.0"
+	#endpoint_create    = `export SERVICE_ENDPOINT=\"#{service_endpoint}\"`
 
-	service_token      = `export SERVICE_TOKEN=\`cat ~/ks_admin_token\``
-	service_endpoint   = `export SERVICE_ENDPOINT=\"http://#{ip_address}:35357/v2.0\"`
+	puts "Creating Keystone Service: Keystone\n----\n"
 
-	service_create  = `keystone service-create --name=keystone --type=identity --description="Keystone Identity Service"`
+	puts" keystone command: keystone --os-token #{service_token} --os-endpoint #{service_endpoint} service-create --name=keystone --type=identity --description=\"Keystone Identity Service\"" 
+
+	service_create  = `keystone --os-token #{service_token} --os-endpoint #{service_endpoint} service-create --name=keystone --type=identity --description=\"Keystone Identity Service\"` 
+	
+	puts "Service Create: #{service_create}"
+	
 	service_id		= /id.*\|(\w.*)|/.match service_create
 	service_id		= service_id[1]
+
+	puts "Service ID: #{service_id}"
+
 	endpoint_create = `keystone endpoint-create --service_id #{service_id} --publicurl 'http://#{ip_address}:5000/v2.0' --adminurl 'http://#{ip_address}:35357/v2.0' --internalurl 'http://#{ip_address}/v2.0'`
 
 	#####There's a possibility to create identity endpoint in different regions. Maybe add that shiz
+
+	abort("----------------\nGetting Identity Endpoints to work\n--------------\n")
+	
 end
 
 def create_admin_account(admin_passwd, ip_address)
 	puts "Creating admin account"
 
-	service_token      = `export SERVICE_TOKEN=\`cat ~/ks_admin_token\``
+	
 	service_endpoint   = `export SERVICE_ENDPOINT=\"http://#{ip_address}:35357/v2.0\"`
 
 	admin_create = `keystone user-create --name admin --pass #{admin_passwd}`
@@ -423,7 +442,7 @@ def compute_service_requirements
 
 end
 
-admin_passwd = 'openstack'
+admin_passwd = 'admin'
 
 configure_db
 
@@ -432,14 +451,18 @@ db_passwd = configure_message_broker
 #db_passwd = "admin"
 keystone_pw = configure_identity_db(db_passwd)
 
-configure_identity_service(keystone_pw)
+service_token = configure_identity_service(keystone_pw)
 
 ###GATHER THE IDENTITY SERVER'S IP ADDRESS
-ip_address = `ifconfig #{dev_name}`
-ip_address = /inet\s(\w.*)\snet/
-ip_address = ip_address[1]
+#ip_address = `ifconfig #{dev_name}`
+#ip_address = /inet\s(\w.*)\snet/
+#ip_address = ip_address[1]
 
-create_identity_endpoint(ip_address)
+puts "What is the IP address for the Identity Service?:"
+ip_address = gets
+ip_address = ip_address.chomp
+
+create_identity_endpoint(ip_address, service_token)
 admin_id = create_admin_account(admin_passwd)
 
 user_account = "nlane"
